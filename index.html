@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head>
+<title>Christiana's Meteor API Report Builder</title>
+<script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+<script src="http://jquery-jsonp.googlecode.com/files/jquery-jsonp-2.2.1.min.js"></script>
+<script src="http://jquery-json.googlecode.com/files/jquery.json-2.3.min.js"></script>
+</head><body>
+<script>
+        var v = 0;
+        var nn = 1;
+        var k = 0;
+        var startDate = "";
+        var endDate = "";
+       
+        function callFour(d) {
+            if(v<k) {
+                uuid = d['uuids'][v];
+                token = d['tokens'][v];
+                name = d['names'][v];
+                progName = d['progNames'][v];
+                startDate = d['startDate'];
+                endDate = d['endDate'];
+                if(uuid.length>0) {
+                    var url = "https://api.meteorsolutions.com/campaign/" + uuid + "/conversions/named/by_conversion_date/sorted/sharing/dates/" + startDate + "/" + endDate + "?reduce=true&limit=100&token=" + token + "&callback=?";
+                    $.jsonp({
+                        url: url,
+                        dataType: 'json',
+                        cache: false,
+                        success: function(data){
+                            var b = data['rows'];
+                            updateContent('');
+                            updateContent('');
+                            for(var i in b) {
+                                for(var j in b[i]) {
+                                    var c = b[i][j]['wom_conversions'];
+                                    if(c > 0) {
+                                        updateContent(j+','+name+','+progName);
+                                    }
+                                }
+                            }
+                            updateContent('');
+                            v += 1;
+                            nn = 1;
+                            callFour(d);
+                        },
+                        error: function(){
+                            if(nn<5) {
+                                nn += 1;
+                                callFour(d);
+                            } else {
+                                updateContent('Could not get list of conversions!');
+                                updateContent('');
+                                v += 1;
+                                callFour(d);
+                            }
+                         }
+                    });
+                }
+            }
+        }
+        
+        function callThree(d) {
+            var url = "https://api.meteorsolutions.com/campaign/" + uuid + "/conversions/overall/dates/" + startDate + "/" + endDate + "?reduce=true&token=" + token + "&callback=?";
+            $.jsonp({
+                url: url,
+                dataType: 'json',
+                cache: false,
+                success: function(data){
+                    theResponse = theResponse + ',' + data['stats']['wom_conversions'];
+                    updateContent(theResponse);
+                    v += 1;
+                    nn = 1;
+                    callOne(d);
+                },
+                error: function(){
+                    if(nn<5) {
+                        nn += 1;
+                        callThree(d);
+                    } else {
+                        nn = 1;
+                        updateContent('This call failed five times, moving on.');
+                        v += 1;
+                        callOne(d);
+                    }
+                 }
+            });
+        }
+        
+        function callTwo(d) {
+            var url = "https://api.meteorsolutions.com/campaign/" + uuid + "/general/overall/dates/" + startDate + "/" + endDate + "?reduce=true&token=" + token + "&callback=?";
+            $.jsonp({
+                url: url,
+                dataType: 'json',
+                cache: false,
+                success: function(data){
+                    theResponse = theResponse + ',' + data['stats']['wom_visitors'] + ',' + data['stats']['direct_visitors'] + ',' + data['stats']['visitors_who_shared'];
+                    callThree(d);
+                },
+                error: function(){
+                    if(nn<5) {
+                        nn += 1;
+                        callTwo(d);
+                    } else {
+                        nn = 1;
+                        updateContent('This call failed five times, moving on.');
+                        callThree(d);
+                    }
+                 }
+            });
+        }
+        
+        function callOne(d) {
+            if(v<k) {
+                uuid = d['uuids'][v];
+                token = d['tokens'][v];
+                name = d['names'][v];
+                startDate = d['startDate'];
+                endDate = d['endDate'];
+                if(uuid.length>0) {
+                    var url = "https://api.meteorsolutions.com/campaign/" + uuid + "/general/impressions/dates/" + startDate + "/" + endDate + "?reduce=true&token=" + token + "&callback=?";
+                    $.jsonp({
+                      url: url,
+                      dataType: 'json',
+                      cache: false,
+                      success: function(data){
+                            theResponse = name + ',' + data['stats']['impressions'];
+                            nn = 1;
+                            callTwo(d);
+                          },
+                      error: function(){
+                            if(nn<5) {
+                                nn += 1;
+                                callOne(d);
+                            } else {
+                                nn = 1;
+                                updateContent('This call failed five times, moving on.');
+                                callTwo(d);
+                            }
+                          }
+                    });
+                }
+            }
+        }
+
+    function sendDashboardRequest() { 
+        updateContent('Loading...');
+        var content = document.getElementById("uuids").value;
+        content = content.replace(/(\r\n|\n|\r)/gm,'\n');
+        var lines = content.split('\n');
+        var d = new Object();
+        var uuids = new Object();
+        var tokens = new Object();
+        var names = new Object();
+        var progNames = new Object();
+        for(var i=0; i<lines.length; i++) {
+            if(lines[i].split(',').length>1) {
+                var npqz = lines[i].split(',');
+                var n = npqz[0].split(' ').join('');
+                var p = npqz[1].split(' ').join('');
+                var q = npqz[2];
+                var z = npqz[3];
+                if(n!=null) {
+                    uuids[i] = n;
+                    tokens[i] = p;
+                    names[i] = q;
+                    progNames[i] = z;
+                }
+            }
+        }
+        startDate = document.getElementById("startDate").value;
+        endDate = document.getElementById("endDate").value;
+        var d = new Object();
+        d['uuids'] = uuids;
+        d['tokens'] = tokens;
+        d['names'] = names;
+        d['startDate'] = startDate;
+        d['endDate'] = endDate;
+        k = 0;
+        for(var p in d['uuids']) {
+            k += 1;
+        }
+        v = 0;
+        nn = 1;
+        callOne(d);
+    }
+    
+    function sendWomRequest() { 
+        updateContent('Loading...');
+        var content = document.getElementById("uuids").value;
+        content = content.replace(/(\r\n|\n|\r)/gm,'\n');
+        var lines = content.split('\n');
+        var d = new Object();
+        var uuids = new Object();
+        var tokens = new Object();
+        var names = new Object();
+        var progNames = new Object();
+        for(var i=0; i<lines.length; i++) {
+            if(lines[i].split(',').length>1) {
+                var npqz = lines[i].split(',');
+                var n = npqz[0].split(' ').join('');
+                var p = npqz[1].split(' ').join('');
+                var q = npqz[2];
+                var z = npqz[3];
+                if(n!=null) {
+                    uuids[i] = n;
+                    tokens[i] = p;
+                    names[i] = q;
+                    progNames[i] = z;
+                }
+            }
+        }
+        startDate = document.getElementById("startDate").value;
+        endDate = document.getElementById("endDate").value;
+        var d = new Object();
+        d['uuids'] = uuids;
+        d['tokens'] = tokens;
+        d['names'] = names;
+        d['progNames'] = progNames;
+        d['startDate'] = startDate;
+        d['endDate'] = endDate;
+        k = 0;
+        for(var p in d['uuids']) {
+            k += 1;
+        }
+        v = 0;
+        nn = 1;
+        callFour(d);
+    }
+
+    function updateContent(data) {
+        var s = $.toJSON(data);
+        s = s.replace("\"", "").replace("\"", "");
+        document.getElementById("response").value += s + '\n';
+        document.getElementById("responseHTML").innerHTML += s + '<br/>';
+    }
+
+</script>
+
+<div style="position:relative;top:2%;" align="center" id="logo">
+<!--<img src="/api.png" width="300px"/><br/><br/><br/>-->
+</div>
+
+<div style="position:relative;top:2%;" align="center" id="userParams">
+Start Date: <textarea rows="1" cols="10" id="startDate" name="startDate" onfocus="if (this.value=='YYYYMMDD') this.value = ''">YYYYMMDD</textarea><br/>
+End Date: <textarea rows="1" cols="10" id="endDate" onfocus="if (this.value=='YYYYMMDD') this.value = ''">YYYYMMDD</textarea><br/><br/>
+UUIDs & tokens (CSV) <br/>
+<textarea style="visibility:visible;" rows="20" cols="100" id="uuids" name="uuids"></textarea>
+</div>
+<br/>
+<div style="position:relative;top:2%;" align="center" id="butons">
+    <button onClick="sendDashboardRequest();">---> <b>Send Dashboard Request</b> <---</button>
+    <button onClick="sendWomRequest();">---> <b>Send WOM Conversion Request</b> <---</button><br/><br/>
+</div>
+
+<div style="position:relative;top:2%;" align="center" id="responseDiv">
+Results will be given below: <br/><br/>
+<textarea id="response" rows="20" cols="100"></textarea>
+</div>
+
+<br/>
+
+<div style="position:relative;top:2%;" align="center" id="responseHTML">
+A second copy of the results will be below in case it's easier to select: <br/><br/><br/>
+</div>
+
+<br/><br/>
+
+</body></html>
